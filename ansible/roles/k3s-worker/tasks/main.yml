@@ -1,0 +1,13 @@
+# roles/k3s-worker/tasks/main.yml
+---
+- name: Download K3s install script
+  ansible.builtin.get_url:
+    url: https://get.k3s.io
+    dest: /tmp/get-k3s-agent.sh
+    mode: "0755"
+
+- name: Install K3s agent
+  ansible.builtin.shell: |
+    K3S_URL={{ k3s_url }} K3S_TOKEN={{ hostvars[groups['master'][0]]['k3s_node_token'] }} sh /tmp/get-k3s-agent.sh
+  args:
+    creates: /usr/local/bin/k3s-agent

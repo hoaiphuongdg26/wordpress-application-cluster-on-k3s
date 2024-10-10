@@ -1,0 +1,15 @@
+# site.yml
+---
+- name: Install K3s master
+  hosts: master
+  become: true
+  roles:
+    - common
+    - k3s-master
+
+- name: Install K3s workers
+  hosts: worker
+  become: true
+  roles:
+    - common
+    - k3s-worker

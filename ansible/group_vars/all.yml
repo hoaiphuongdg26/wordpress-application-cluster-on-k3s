@@ -1,0 +1,4 @@
+# group_vars/all.yml
+---
+ansible_user: ubuntu # Thay đổi user này nếu cần
+

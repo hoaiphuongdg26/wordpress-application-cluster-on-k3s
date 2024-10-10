@@ -1,0 +1,3 @@
+# group_vars/worker.yml
+---
+k3s_url: "https://{{ hostvars[groups['master'][0]]['ansible_host'] }}:6443"

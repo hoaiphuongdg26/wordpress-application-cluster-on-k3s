@@ -1,0 +1,21 @@
+# roles/k3s-master/tasks/main.yml
+---
+- name: Download K3s installation script
+  ansible.builtin.get_url:
+    url: https://get.k3s.io
+    dest: /tmp/get_k3s.sh
+    mode: "0755" # Đặt quyền thực thi cho file
+
+- name: Install K3s
+  ansible.builtin.command: sh /tmp/get_k3s.sh
+  args:
+    creates: /usr/local/bin/k3s
+
+- name: Get node token
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/k3s/server/node-token
+  register: node_token
+
+- name: Store node token
+  ansible.builtin.set_fact:
+    k3s_node_token: "{{ node_token['content'] | b64decode | trim }}"
