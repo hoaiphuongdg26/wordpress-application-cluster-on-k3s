@@ -1,0 +1,16 @@
+# Terraform files
+*.tfstate
+*.tfstate.backup
+*.tfstate.lock
+.terraform/
+*.tfvars
+*.pem
+*.key
+
+#Ansible files
+ansible/
+
+# Ignore any temporary or auto-generated files
+*.tmp
+*.log
+*.bin
