@@ -1,3 +1,15 @@
 # group_vars/master.yml
 ---
 k3s_server_args: ""
+
+# SSL Certificate
+ssl_certificate_folder: "/etc/ssl/wordpress"
+common_name: "https://{{ hostvars[groups['master'][0]]['dns_name'] }}"
+email_address: phuongqth268@gmail.com
+country: IN
+state: Random
+locality: Random
+organization: Random
+organizational_unit: Random
+days_valid: 500
+key_size: 2048

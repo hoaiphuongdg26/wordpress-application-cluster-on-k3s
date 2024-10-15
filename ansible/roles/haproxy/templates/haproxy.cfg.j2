@@ -1,0 +1,28 @@
+global
+    log         127.0.0.1:514 local0
+
+    chroot      /var/lib/haproxy
+    pidfile     /var/run/haproxy.pid
+    maxconn     4000
+    user        haproxy
+    group       haproxy
+    daemon
+    stats socket /var/lib/haproxy/stats
+    stats socket *:1999 level admin
+    stats socket /var/run/haproxy.sock mode 600 level admin
+    
+frontend frontend
+        bind *:443 ssl crt {{ ssl_certificate_folder }}/server.pem
+        mode http
+        option httpclose
+        option forwardfor
+        http-request set-header X-Forwarded-Proto https
+        default_backend backend_ingress
+
+backend backend_ingress
+        mode    http
+        stats   enable
+        stats   auth username:password
+        balance roundrobin
+        cookie SRVNAME insert indirect nocache
+        server  worker {{ hostvars[groups['worker'][0]]['private_ip'] }}:30443 ssl verify none cookie p1 weight 1 

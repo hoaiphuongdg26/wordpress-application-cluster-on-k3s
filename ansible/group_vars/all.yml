@@ -2,3 +2,6 @@
 ---
 ansible_user: ubuntu # Thay đổi user này nếu cần
 
+nfs_server_ip: "{{ hostvars[groups['master'][0]]['private_ip'] }}"
+nfs_share_folder: "/var/nfs/general"
+nfs_mount_folder: "/nfs/general"

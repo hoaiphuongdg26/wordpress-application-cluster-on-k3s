@@ -6,6 +6,15 @@ resource "aws_security_group" "public_ec2" {
   description = "Security group for public EC2 instances"
   vpc_id      = var.vpc_id
 
+  # Allow all traffic from the same security group
+  ingress {
+    description     = "Allow all inbound traffic from instances in the same security group"
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"
+    self            = true
+  }
+  
   # Allow SSH
   ingress {
     description = "SSH from specific IP"

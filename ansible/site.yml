@@ -1,15 +1,33 @@
 # site.yml
 ---
-- name: Install K3s master
+- name: Install on master
   hosts: master
   become: true
   roles:
     - common
     - k3s-master
+    - k9s
+    - helm
+    - nfs-server
+    - ssl-certificate
 
-- name: Install K3s workers
+- name: Install on workers
   hosts: worker
   become: true
   roles:
     - common
     - k3s-worker
+    - nfs-agent
+
+- name: Install Haproxy on master
+  hosts: master
+  become: true
+  roles:
+    - haproxy
+    - cluster
+
+- name: Install NGINX Ingress Controller on master
+  hosts: master
+  become: true
+  roles:
+    - cluster

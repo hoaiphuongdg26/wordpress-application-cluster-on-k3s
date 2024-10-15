@@ -1,0 +1,70 @@
+# roles/nfs-server/tasks/main.yml
+---
+- name: Install a package for NFS server
+  ansible.builtin.apt:
+    name: nfs-kernel-server
+    state: present
+
+- name: Create a directory to share
+  ansible.builtin.file:
+    path: "{{ nfs_share_folder }}"
+    state: directory
+    owner: nobody
+    group: nogroup
+    mode: '0755'
+
+- name: Update /etc/exports
+  ansible.builtin.lineinfile:
+    path: /etc/exports
+    line: "{{ nfs_share_folder }}    {{ hostvars[item]['private_ip'] }}(rw,sync,no_subtree_check,no_root_squash)"
+    state: present
+  loop: "{{ groups['master'] + groups['worker'] }}"
+  tags:
+    - nfs
+  notify: Restart NFS kernel server
+
+- name: Disable UFW
+  community.general.ufw:
+    state: disabled
+
+- name: Add NFS Subdir External Provisioner Helm repository
+  kubernetes.core.helm_repository:
+    name: "nfs-subdir-external-provisioner"
+    repo_url: "https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner"
+  tags:
+    - helm
+    - nfs
+  register: helm_repo_add
+  notify: Update Helm repositories
+
+- name: Check if NFS Subdir External Provisioner release exists
+  ansible.builtin.command:
+    cmd: helm status nfs-subdir-external-provisioner --kubeconfig /etc/rancher/k3s/k3s.yaml
+  register: helm_status
+  changed_when: false
+  ignore_errors: true
+
+- name: Install NFS Subdir External Provisioner
+  ansible.builtin.command: >
+    helm install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner
+    --set nfs.server={{ nfs_server_ip }}
+    --set nfs.path={{ nfs_share_folder }}
+    --kubeconfig /etc/rancher/k3s/k3s.yaml
+  args:
+    creates: /etc/helm/nfs-subdir-external-provisioner
+  when: helm_status.rc != 0
+  tags:
+    - helm
+    - nfs
+
+- name: Upgrade NFS Subdir External Provisioner
+  ansible.builtin.command: >
+    helm upgrade nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner
+    --set nfs.server={{ nfs_server_ip }}
+    --set nfs.path={{ nfs_share_folder }}
+    --kubeconfig /etc/rancher/k3s/k3s.yaml
+  when: helm_status.rc == 0
+  changed_when: helm_status.stdout != "Release \"nfs-subdir-external-provisioner\" has been upgraded."
+  tags:
+    - helm
+    - nfs

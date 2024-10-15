@@ -1,0 +1,21 @@
+# roles/haproxy/tasks/main.yml
+---
+- name: Install HAProxy if not installed
+  ansible.builtin.package:
+    name: haproxy
+    state: present
+
+- name: Create HAProxy configuration
+  ansible.builtin.template:
+    src: templates/haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart HAProxy
+
+- name: Enable and start HAProxy service
+  ansible.builtin.systemd:
+    name: haproxy
+    enabled: true
+    state: started

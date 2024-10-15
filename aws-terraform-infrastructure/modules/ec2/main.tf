@@ -47,6 +47,17 @@ resource "aws_instance" "master" {
   }
 }
 
+# Elastic IP for Master
+resource "aws_eip" "master_eip" {
+  count    = var.master_count
+  instance = aws_instance.master[count.index].id
+  domain   = "vpc"
+
+  tags = {
+    Name = "${var.environment}-master-eip-${count.index + 1}"
+  }
+}
+
 # EC2 Instance Worker
 resource "aws_instance" "worker" {
   count         = var.worker_count
@@ -61,5 +72,16 @@ resource "aws_instance" "worker" {
 
   tags = {
     name = "${var.environment}-worker-ec2-${count.index + 1}"
+  }
+}
+
+# Elastic IP for Worker
+resource "aws_eip" "worker_eip" {
+  count    = var.worker_count
+  instance = aws_instance.worker[count.index].id
+  domain   = "vpc"
+
+  tags = {
+    Name = "${var.environment}-worker-eip-${count.index + 1}"
   }
 }

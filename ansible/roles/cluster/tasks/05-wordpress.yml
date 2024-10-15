@@ -1,0 +1,124 @@
+# roles/cluser/tasks/05-wordpress.yml
+---
+- name: Create a directory to storage WordPress data
+  ansible.builtin.file:
+    path: "{{ nfs_share_folder }}/wp-content"
+    state: directory
+    owner: nobody
+    group: nogroup
+    mode: '0755'
+
+- name: Create WordPress Deployment
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolume
+      metadata:
+        name: wp-pv
+        namespace: default
+        labels:
+          app: wordpress
+      spec:
+        storageClassName: nfs-client
+        capacity:
+          storage: 10Gi
+        volumeMode: Filesystem
+        accessModes:
+          - ReadWriteMany
+        persistentVolumeReclaimPolicy: Retain
+        nfs:
+          path: "{{ nfs_share_folder }}/wp-content"
+          server: "{{ nfs_server_ip }}"
+
+- name: Create WordPress PersistentVolumeClaim
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: wp-pv-claim
+        namespace: default
+        labels:
+          app: wordpress
+      spec:
+        storageClassName: nfs-client
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: 10Gi
+
+- name: Create WordPress Service
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: wordpress
+        namespace: default
+        labels:
+          app: wordpress
+      spec:
+        ports:
+          - port: 80
+            targetPort: 80
+            protocol: TCP
+        type: ClusterIP
+        selector:
+          app: wordpress
+          tier: frontend
+
+- name: Create WordPress Deployment
+  k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: wordpress
+        namespace: default
+        labels:
+          app: wordpress
+      spec:
+        selector:
+          matchLabels:
+            app: wordpress
+            tier: frontend
+        strategy:
+          type: Recreate
+        template:
+          metadata:
+            labels:
+              app: wordpress
+              tier: frontend
+          spec:
+            containers:
+              - image: wordpress:6.2.1-apache
+                name: wordpress
+                env:
+                  - name: WORDPRESS_DB_HOST
+                    value: mysql-0.mysql
+                  - name: WORDPRESS_DB_PASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: mysql-secret
+                        key: MYSQL_ROOT_PASSWORD
+                  - name: WORDPRESS_DB_USER
+                    value: wordpress
+                  - name: WP_HOME
+                    value: "{{ common_name }}"
+                  - name: WP_SITEURL
+                    value: "{{ common_name }}"
+                ports:
+                  - containerPort: 80
+                    name: wordpress
+                volumeMounts:
+                  - name: wordpress-persistent-storage
+                    mountPath: /var/www/html/wp-content
+            volumes:
+              - name: wordpress-persistent-storage
+                persistentVolumeClaim:
+                  claimName: wp-pv-claim

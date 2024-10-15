@@ -1,0 +1,21 @@
+# roles/nfs-agent/tasks/main.yml
+---
+- name: Install a package for NFS client
+  ansible.builtin.apt:
+    name: nfs-common
+    state: present
+
+- name: Create a directory NFS share
+  ansible.builtin.file:
+    path: "{{ nfs_mount_folder }}"
+    state: directory
+    mode: '0755'
+
+- name: Mount NFS share
+  ansible.builtin.mount:
+    path: /nfs/general
+    src: "{{ nfs_server_ip }}:{{ nfs_share_folder }}"
+    fstype: nfs
+    state: mounted
+  tags:
+    - nfs

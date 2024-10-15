@@ -1,0 +1,36 @@
+# roles/k9s/tasks/main.yml
+---
+- name: Check if K9s is already installed
+  ansible.builtin.command:
+    cmd: k9s version
+  register: k9s_check
+  changed_when: false
+  ignore_errors: true
+
+- name: Download K9s binary
+  ansible.builtin.get_url:
+    url: "https://github.com/derailed/k9s/releases/download/v0.27.3/k9s_Linux_amd64.tar.gz"
+    dest: "/tmp/k9s_Linux_amd64.tar.gz"
+    mode: '0644'
+  when: k9s_check.rc != 0
+
+- name: Extract K9s binary
+  ansible.builtin.unarchive:
+    src: "/tmp/k9s_Linux_amd64.tar.gz"
+    dest: "/tmp/"
+    remote_src: true
+  when: k9s_check.rc != 0
+
+- name: Move K9s binary to /usr/local/bin/
+  ansible.builtin.command:
+    cmd: mv /tmp/k9s /usr/local/bin/
+  args:
+    creates: /usr/local/bin/k9s
+  when: k9s_check.rc != 0
+
+- name: Ensure K9s binary is executable
+  ansible.builtin.file:
+    path: /usr/local/bin/k9s
+    mode: '0755'
+    state: file
+  when: k9s_check.rc != 0

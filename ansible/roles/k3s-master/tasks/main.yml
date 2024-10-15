@@ -7,7 +7,7 @@
     mode: "0755" # Đặt quyền thực thi cho file
 
 - name: Install K3s
-  ansible.builtin.command: sh /tmp/get_k3s.sh
+  ansible.builtin.command: sh /tmp/get_k3s.sh --disable traefik
   args:
     creates: /usr/local/bin/k3s
 
@@ -19,3 +19,10 @@
 - name: Store node token
   ansible.builtin.set_fact:
     k3s_node_token: "{{ node_token['content'] | b64decode | trim }}"
+
+- name: Set KUBECONFIG environment variable
+  ansible.builtin.lineinfile:
+    path: /etc/environment
+    line: 'KUBECONFIG=/etc/rancher/k3s/k3s.yaml'
+    create: true
+    mode: '0644'
