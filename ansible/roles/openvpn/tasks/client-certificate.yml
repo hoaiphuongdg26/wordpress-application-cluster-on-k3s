@@ -1,0 +1,107 @@
+# ansible/roles/openvpn/tasks/client-certificate.yml
+- name: Create directory for client certificates
+  ansible.builtin.file:
+    path: "{{ openvpn_cert_dir }}/clients"
+    state: directory
+    mode: '0700'
+
+- name: Generate client private key
+  openssl_privatekey:
+    path: "{{ openvpn_cert_dir }}/clients/{{ item.name }}.key"
+    size: 4096
+    type: RSA
+  loop: "{{ client_info }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: generate_client_certs | bool
+
+- name: Generate client CSR
+  openssl_csr:
+    path: "{{ openvpn_cert_dir }}/clients/{{ item.name }}.csr"
+    privatekey_path: "{{ openvpn_cert_dir }}/clients/{{ item.name }}.key"
+    country_name: "{{ item.country }}"
+    state_or_province_name: "{{ item.state }}"
+    locality_name: "{{ item.locality }}"
+    organization_name: "{{ item.organization }}"
+    organizational_unit_name: "{{ item.organizational_unit }}"
+    email_address: "{{ item.email }}"
+    common_name: "{{ item.name }}"
+  loop: "{{ client_info }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: generate_client_certs | bool
+
+- name: Generate client certificate and key
+  community.crypto.x509_certificate:
+    path: "{{ openvpn_cert_dir }}/clients/{{ item.name }}.crt"
+    csr_path: "{{ openvpn_cert_dir }}/clients/{{ item.name }}.csr"
+    privatekey_path: "{{ openvpn_cert_dir }}/clients/{{ item.name }}.key"  # Thêm dòng này
+    provider: ownca
+    ownca_path: "{{ ca_dir }}/rootCA.pem"
+    ownca_privatekey_path: "{{ ca_dir }}/rootCA.key"
+    ownca_privatekey_passphrase: "{{ ca_key_passphrase }}"
+    ownca_not_after: "+{{ item.valid_days }}d"
+  loop: "{{ client_info }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: generate_client_certs | bool
+
+- name: Copy CA certificate to clients directory
+  ansible.builtin.copy:
+    src: "{{ ca_dir }}/rootCA.pem"
+    dest: "{{ openvpn_cert_dir }}/clients/ca.crt"
+    mode: '0644'
+    remote_src: true
+  when: generate_client_certs | bool
+
+- name: Generate OpenVPN static key
+  community.crypto.openssl_privatekey:
+    path: "{{ openvpn_cert_dir }}/clients/ta.key"
+    type: RSA
+    size: 2048
+    force: true
+
+- name: Read CA certificate content
+  ansible.builtin.slurp:
+    path: "{{ openvpn_cert_dir }}/clients/ca.crt"
+  register: ca_cert_content
+  when: generate_client_certs | bool
+
+- name: Read client certificate content
+  ansible.builtin.slurp:
+    path: "{{ openvpn_cert_dir }}/clients/{{ item.name }}.crt"
+  loop: "{{ client_info }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: client_cert_contents
+  when: generate_client_certs | bool
+
+- name: Read client private key content
+  ansible.builtin.slurp:
+    path: "{{ openvpn_cert_dir }}/clients/{{ item.name }}.key"
+  loop: "{{ client_info }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: client_key_contents
+  when: generate_client_certs | bool
+
+- name: Read TLS auth key content (if required)
+  ansible.builtin.slurp:
+    path: "{{ openvpn_cert_dir }}/clients/ta.key"
+  register: tls_auth_content
+  when: tls_auth_required | bool and generate_client_certs | bool
+
+- name: Generate client configuration files
+  ansible.builtin.template:
+    src: templates/client.ovpn.j2
+    dest: "{{ openvpn_cert_dir }}/clients/{{ item.name }}.ovpn"
+    mode: '0600'
+  loop: "{{ client_info }}"
+  loop_control:
+    label: "{{ item.name }}"
+  vars:
+    ca_cert: "{{ ca_cert_content.content | b64decode }}"
+    client_cert: "{{ client_cert_contents.results | selectattr('item.name', 'equalto', item.name) | map(attribute='content') | first | b64decode }}"
+    client_key: "{{ client_key_contents.results | selectattr('item.name', 'equalto', item.name) | map(attribute='content') | first | b64decode }}"
+    tls_auth_key: "{{ tls_auth_content.content | b64decode if tls_auth_required else '' }}"
+  when: generate_client_certs | bool

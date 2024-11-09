@@ -1,0 +1,51 @@
+# ansible/roles/openvpn/defaults/main.yml
+---
+openvpn_server: "172.16.0.0 255.255.255.0"
+openvpn_port: 1194
+openvpn_protocol: udp
+openvpn_cert_dir: /etc/openvpn/certs
+ca_dir: "/etc/ssl/ca"
+
+# Certificate Generation Control
+generate_client_certs: true
+
+# Client Information
+client_info:
+  - name: "client1"
+    country: "VN"
+    state: "Hanoi"
+    locality: "Hanoi"
+    organization: "Company Name"
+    organizational_unit: "IT"
+    email: "client1@example.com"
+    valid_days: 365
+
+# OpenVPN Server Settings
+server_name: "{{ hostvars[groups['manager'][0]]['dns_name'] }}"
+max_clients: 100
+keepalive_ping: 10
+keepalive_timeout: 120
+cipher: "AES-256-GCM"
+auth_digest: "SHA256"
+compress_algorithm: "lz4-v2"
+duplicate_cn: false
+client_to_client: false
+
+# Push Settings to Clients
+push_redirect_gateway: true
+push_dns: true
+
+# TLS Settings
+tls_auth_required: false
+tls_version_min: "1.2"
+
+# Logging Settings
+log_level: 1  # 0 is silent, 1 is default, ... 9 is debug
+status_log: "/var/log/openvpn/openvpn-status.log"
+log_file: "/var/log/openvpn/openvpn.log"
+
+# System Settings
+persist_key: true
+persist_tun: true
+user: "nobody"
+group: "nogroup"

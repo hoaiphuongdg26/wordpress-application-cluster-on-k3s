@@ -1,14 +1,10 @@
-# modules/keypair/variables.tf
+variable "name" {
+  description = "Name of the key pair"
+  type        = string
+}
 
-variable "environment" {
-  description = "Environment name"
+variable "algorithm" {
+  description = "Algorithm for the key pair"
   type        = string
-}
-variable "instance_count" {
-  description = "Số lượng instance"
-  type        = number
-}
-variable "instance_type" {
-  description = "Instance type for EC2 instances"
-  type        = string
+  default     = "RSA"
 }

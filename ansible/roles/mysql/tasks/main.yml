@@ -1,0 +1,40 @@
+# ansible/roles/mysql/tasks/main.yml
+---
+- name: Ensure helm and kubernetes modules dependencies are installed
+  ansible.builtin.pip:
+    name:
+      - kubernetes
+      - PyYAML
+    state: present
+  become: true
+
+- name: Copy Helm chart to master node
+  ansible.builtin.copy:
+    src: "{{ role_path }}/files/mysql/"
+    dest: "{{ mysql_helm_chart_path }}"
+    mode: '0755'
+
+- name: Create temporary values file
+  ansible.builtin.template:
+    src: values.yml.j2
+    dest: "/tmp/{{ mysql_helm_release_name }}-values.yml"
+    mode: '0644'
+  register: values_file
+
+- name: Deploy MySQL using Helm
+  kubernetes.core.helm:
+    name: "{{ mysql_helm_release_name }}"
+    chart_ref: "{{ mysql_helm_chart_path }}"
+    release_namespace: default
+    create_namespace: true
+    values_files:
+      - "{{ values_file.dest }}"
+    wait: "{{ mysql_helm_wait }}"
+    wait_timeout: "{{ mysql_helm_timeout }}"
+    atomic: "{{ mysql_helm_atomic }}"
+    force: "{{ mysql_helm_force }}"
+
+# - name: Remove temporary values file
+#   ansible.builtin.file:
+#     path: "{{ values_file.dest }}"
+#     state: absent

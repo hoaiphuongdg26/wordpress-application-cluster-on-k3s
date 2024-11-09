@@ -1,0 +1,31 @@
+# ansible/roles/mysql/files/mysql/values.yaml
+replicaCount: "{{ mysql_replicas }}"
+
+image:
+  mysql:
+    repository: mysql
+    tag: "5.7"
+  xtrabackup:
+    repository: gcr.io/google-samples/xtrabackup
+    tag: "1.0"
+
+mysql:
+  database: "{{ mysql_database }}"
+  user: "{{ mysql_user }}}"
+  rootPassword: "{{ mysql_root_password }}"
+  password: "{{ mysql_password }}"
+  # slavePassword: "{{ mysql_replication_password }}"
+
+persistence:
+  storageClass: "{{ mysql_storage_class }}"
+  size: "{{ mysql_storage_size }}"
+
+resources:
+  mysql:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  xtrabackup:
+    requests:
+      cpu: 100m
+      memory: 100Mi

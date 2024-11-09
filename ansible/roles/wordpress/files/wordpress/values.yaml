@@ -1,0 +1,17 @@
+wordpress:
+  image:
+    repository: wordpress
+    tag: 6.2.1-apache
+  persistence:
+    storageClass: nfs-client
+    size: 10Gi
+  ingress:
+    enabled: true
+    className: nginx
+  nfs:
+    server: "{{ wordpress_nfs_server_ip }}"
+    shareFolder: '{{ wordpress_nfs_share_folder }}/wp-content'
+  mysql:
+    host: mysql-0.mysql
+    user: wordpress
+  domain: "{{ wordpress_domain }}"

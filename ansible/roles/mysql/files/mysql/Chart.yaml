@@ -1,0 +1,6 @@
+# ansible/roles/mysql/files/mysql/Chart.yaml
+apiVersion: v2
+name: mysql
+description: A Helm chart for MySQL with replication
+version: 0.1.0
+type: application

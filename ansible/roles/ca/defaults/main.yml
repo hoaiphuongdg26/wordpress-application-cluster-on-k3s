@@ -1,0 +1,14 @@
+# ansible/roles/ca/defaults/main.yml
+
+ca_cert_file: "{{ ca_dir }}/rootCA.pem"
+ca_key_file: "{{ ca_dir }}/rootCA.key"
+ca_common_name: "https://{{ instances[0].dns_name }}"
+ca_email_address: phuongqth268@gmail.com
+ca_country: IN
+ca_state: Random
+ca_locality: Random
+ca_organization: Random
+ca_organizational_unit: Random
+ca_days_valid: 500
+ca_key_size: 2048
+ca_days: 1024

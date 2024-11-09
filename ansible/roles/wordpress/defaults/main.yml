@@ -1,0 +1,4 @@
+---
+wordpress_nfs_server_ip: "{{ nfs_server_ip }}"
+wordpress_nfs_share_folder: "{{ nfs_share_folder }}"
+wordpress_domain: "{{ hostvars[groups['manager'][0]]['dns_name'] }}"

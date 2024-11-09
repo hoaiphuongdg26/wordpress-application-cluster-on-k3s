@@ -1,0 +1,31 @@
+# ansible/roles/mysql/defaults/main.yml
+---
+# Helm deployment configs
+mysql_helm_release_name: mysql
+mysql_helm_chart_path: "/tmp/mysql-helm/"
+mysql_helm_timeout: 600s
+mysql_helm_atomic: true
+mysql_helm_wait: true
+mysql_helm_force: false
+
+# MySQL configs that can be overridden
+mysql_replicas: 2
+mysql_storage_class: nfs-client
+mysql_storage_size: 10Gi
+mysql_database: wordpress
+mysql_user: wordpress
+mysql_root_password: "{{ vault_mysql_root_password }}"
+mysql_password: "{{ vault_mysql_password }}"
+# mysql_slave_password: "{{ vault_mysql_slave_password }}"
+
+mysql_values:
+  replicaCount: "{{ mysql_replicas }}"
+  persistence:
+    storageClass: "{{ mysql_storage_class }}"
+    size: "{{ mysql_storage_size }}"
+  mysql:
+    database: "{{ mysql_database }}"
+    user: "{{ mysql_user }}"
+    rootPassword: "{{ mysql_root_password }}"
+    password: "{{ mysql_password }}"
+    # slavePassword: "{{ mysql_slave_password }}"

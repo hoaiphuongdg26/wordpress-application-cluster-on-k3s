@@ -23,10 +23,6 @@
     - nfs
   notify: Restart NFS kernel server
 
-- name: Disable UFW
-  community.general.ufw:
-    state: disabled
-
 - name: Add NFS Subdir External Provisioner Helm repository
   kubernetes.core.helm_repository:
     name: "nfs-subdir-external-provisioner"

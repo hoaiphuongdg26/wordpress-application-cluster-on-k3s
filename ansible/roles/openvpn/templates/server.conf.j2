@@ -1,0 +1,32 @@
+port {{ openvpn_port }}
+proto {{ openvpn_protocol }}
+dev tun
+
+ca {{ openvpn_cert_dir }}/ca.crt
+cert {{ openvpn_cert_dir }}/server.crt
+key {{ openvpn_cert_dir }}/server.key
+
+dh none
+ecdh-curve prime256v1
+
+server {{ openvpn_server }}
+push "redirect-gateway def1 bypass-dhcp"
+push "route 10.0.1.0 255.255.255.0"    # Route to public subnet 
+push "route 10.0.10.0 255.255.255.0"   # Route to private subnet
+push "dhcp-option DNS 8.8.8.8"
+push "dhcp-option DNS 8.8.4.4"
+
+client-to-client
+
+keepalive 10 120
+cipher AES-256-GCM
+auth SHA256
+
+user nobody
+group nogroup
+
+persist-key
+persist-tun
+
+status openvpn-status.log
+verb 3

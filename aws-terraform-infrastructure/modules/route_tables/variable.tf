@@ -1,24 +1,37 @@
-# modules/route_table/variables.tf
-
 variable "vpc_id" {
-  description = "The ID of the VPC"
+  description = "ID of the VPC"
   type        = string
 }
 
-variable "subnet_ids" {
-  description = "List of subnet IDs to associate with the route table"
+variable "name" {
+  description = "Name prefix for route table resources"
+  type        = string
+}
+
+variable "internet_gateway_id" {
+  description = "ID of the Internet Gateway"
+  type        = string
+}
+
+variable "nat_gateway_id" {
+  description = "ID of the NAT Gateway"
+  type        = string
+  default     = ""
+}
+
+variable "enable_nat_gateway" {
+  description = "Whether to create a private route table with NAT Gateway"
+  type        = bool
+  default     = true
+}
+
+variable "public_subnet_ids" {
+  description = "List of public subnet IDs"
   type        = list(string)
 }
 
-variable "routes" {
-  description = "List of routes to be added to the route table"
-  type = list(object({
-    cidr_block = string
-    gateway_id = string
-  }))
-}
-
-variable "environment" {
-  description = "Environment name"
-  type        = string
+variable "private_subnet_ids" {
+  description = "List of private subnet IDs"
+  type        = list(string)
+  default     = []
 }

@@ -1,0 +1,14 @@
+[req]
+default_bits = 2048
+prompt = no
+default_md = sha256
+distinguished_name = dn
+
+[dn]
+C={{ ca_country }}
+ST={{ ca_state }}
+L={{ ca_locality }}
+O={{ ca_organization }}
+OU={{ ca_organizational_unit }}
+emailAddress={{ ca_email_address }}
+CN={{ ca_common_name }}

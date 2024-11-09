@@ -7,6 +7,7 @@ This project demonstrates deploying a scalable WordPress application cluster usi
 - [WordPress Application Cluster on K3s](#wordpress-application-cluster-on-k3s)
   - [Table of Contents](#table-of-contents)
   - [Project Overview](#project-overview)
+  - [Project Structure](#project-structure)
   - [Architecture](#architecture)
     - [Model](#model)
     - [Infrastructure (AWS)](#infrastructure-aws)
@@ -15,12 +16,13 @@ This project demonstrates deploying a scalable WordPress application cluster usi
   - [Deployment Steps](#deployment-steps)
     - [1. Set Up AWS Infrastructure](#1-set-up-aws-infrastructure)
     - [2. Configure Ansible Inventory](#2-configure-ansible-inventory)
-    - [3. Create Secret for cluster](#3-create-secret-for-cluster)
+    - [3. Set up Secrets for Database](#3-set-up-secrets-for-database)
     - [4. Install Required Ansible Collections](#4-install-required-ansible-collections)
     - [5. Deploy K3s Cluster and Applications](#5-deploy-k3s-cluster-and-applications)
   - [Components Explained](#components-explained)
   - [Security Considerations](#security-considerations)
   - [Enhancements](#enhancements)
+  - [Debugging](#debugging)
   - [References](#references)
 
 ## Project Overview
@@ -36,10 +38,36 @@ This project aims to create a robust, scalable WordPress deployment using modern
 
 The result is a WordPress cluster that can handle high traffic loads and provides improved reliability through component redundancy.
 
+## Project Structure
+```
+.
+├── ansible
+│   ├── group_vars
+│   │   ├── all.yml
+│   │   ├── vault.yml
+│   │   ├── master.yml
+│   │   └── worker.yml
+│   ├── inventory
+│   │   └── hosts.yml
+│   ├── roles
+│   ├── ansible.cfg
+│   └── site.yml
+├── aws-terraform-infrastructure
+│   ├── keys
+│   ├── modules
+│   ├── terraform.lock.hcl
+│   ├── main.tf
+│   ├── outputs.tf
+│   └── variable.tf
+├── images
+├── .gitignore
+└── README.md
+```
+
 ## Architecture
 
 ### Model
-<img src="./image/Diagram.svg" alt="Description"/>
+<img src="./images/Diagram.svg" alt="Description"/>
 
 ### Infrastructure (AWS)
 
@@ -48,6 +76,36 @@ The result is a WordPress cluster that can handle high traffic loads and provide
 - Security groups for access control
 - EC2 instances (1 master, 1 worker) in public subnets
 - Elastic IPs for stable public addressing
+
+```mermaid
+graph TB
+    subgraph VPC["VPC (10.0.0.0/16)"]
+        subgraph Public["Public Subnet (10.0.1.0/24)"]
+            subgraph Bastion["Management Server (t2.large)"]
+                Jenkins["Jenkins"]
+                HAProxy["HAProxy"]
+                OpenVPN["OpenVPN Server"]
+                CSF["CSF Firewall"]
+            end
+        end
+        
+        subgraph Private["Private Subnet (10.0.10.0/24)"]
+            subgraph K8sMaster["K8s Master Node (t2.large)"]
+                Helm["Helm"]
+                NFS["NFS Server"]
+            end
+            
+            subgraph K8sCluster["K8s Worker Nodes (3x t2.large)"]
+                ELK["Elasticsearch Cluster"]
+                Kibana["Kibana"]
+                Logstash["Logstash"]
+                MySQLMaster["MySQL Master"]
+                MySQLSlaves["MySQL Slaves"]
+                MySQLProxy["MySQL Proxy"]
+            end
+        end
+    end
+```
 
 ### Application Stack
 
@@ -75,59 +133,57 @@ terraform init
 terraform plan
 terraform apply
 ```
-Take note of the output values, as they'll be needed for Ansible configuration.
+Take note of the output values, as they'll be needed for Ansible configuration. Example: 
+ ```bash
+  {
+    "dns_names" = [
+      "ec2-54-224-69-231.compute-1.amazonaws.com",
+    ]
+    "public_ips" = [
+      "54.224.69.231",
+    ]
+  },
+```
 
 ### 2. Configure Ansible Inventory
-Update the `./inventory/hosts.yml` file with the information from Terraform output:
+Update the `./ansible/group_vars/all.yml` file with the information from Terraform output:
 ```yaml
-all:
-  children:
-    k3s_cluster:
-      children:
-        master:
-          hosts:
-            dev-master-1:
-              ansible_host: <elastic_ip>
-              private_ip: <private_ip>
-              dns_name: <public_dns>
-              ansible_ssh_private_key_file: ../aws-terraform-infrastructure/keys/dev-master-1.pem
-        worker:
-          hosts:
-            dev-worker-1:
-              ansible_host: <elastic_ip>
-              private_ip: <private_ip>
-              ansible_ssh_private_key_file: ../aws-terraform-infrastructure/keys/dev-worker-1.pem
-```
-### 3. Create Secret for cluster
-Create the `./ansible/roles/cluster/tasks/02-secret.yml` file with the example information:
-```yaml
-# roles/cluster/tasks/02-secret.yml
 ---
-- name: Create MySQL Secret
-  k8s:
-    state: present
-    definition:
-      apiVersion: v1
-      kind: Secret
-      metadata:
-        name: mysql-secret
-        namespace: default
-      type: Opaque
-      data:
-        MYSQL_ROOT_PASSWORD: MTIzNDU2QFph   # Base64 encoding: 123456@Za
-        MYSQL_PASSWORD: MTIzNDU2QFph        # Base64 encoding: 123456@Za
-        MYSQL_PASS_SLAVE: MTIzNDU2QFph      # Base64 encoding: 123456@Za
+instances:
+  - name: "management-server-instance-0"
+    private_ip: "10.0.1.10"
+    public_ips: "54.224.69.231" # Replace by `public_ips`
+    dns_name: "ec2-54-224-69-231.compute-1.amazonaws.com" # Replace by `dns_names`
+...
+```
+### 3. Set up Secrets for Database
+In terminal, create encrypted passwords file:
+```bash
+ansible-vault create group_vars/vault.yml
+```
+Add the following content:
+```yml
+vault_mysql_root_password: "123456@Za"
+vault_mysql_password: "123456@Za"
+vault_mysql_slave_password: "123456@Za"
+```
+*Note: Replace these passwords with strong, secure passwords in production.*  
+
+To edit content in vault, using command:
+```bash
+ansible-vault edit group_vars/vault.yml
 ```
 
 ### 4. Install Required Ansible Collections
 ```bash
 ansible-galaxy collection install community.general
+ansible-galaxy collection install kubernetes.core
 ```
 
 ### 5. Deploy K3s Cluster and Applications
 ```bash
 cd ../ansible/
-ansible-playbook site.yml
+ansible-playbook site.yml --ask-vault-pass
 ```
 This playbook will:
 - Install K3s on master and worker nodes
@@ -160,6 +216,17 @@ While this project demonstrates core concepts, it's important to note that addit
 - **Logging**: Centralize application and infrastructure logs using ELK stack (Elasticsearch, Logstash, Kibana).
 - **Backup Strategy**: Set up automated backups for MySQL and WordPress data, stored in an S3 bucket for disaster recovery.
 - **Scalability**: Expand the cluster to support more WordPress instances and database replicas as traffic grows.
+
+## Debugging
+When you encounter an error and need to rerun the playbook:
+1. Using ```--start-at-task```: Rerun from the failed task. Example:
+   ```bash
+   ansible-playbook site.yml --start-at-task="Generate client configuration files" --ask-vault-pass
+   ```
+2. Use --limit to run only on the failed host. Example:
+   ```bash
+   ansible-playbook site.yml --limit dev-master-1 --ask-vault-pass
+   ```
 
 ## References
 

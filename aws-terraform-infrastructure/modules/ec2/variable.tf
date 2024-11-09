@@ -1,38 +1,40 @@
-# modules/ec2/variables.tf
-
-variable "environment" {
-  description = "Environment name"
+variable "name" {
+  description = "Name of the EC2 instances"
   type        = string
 }
 
-variable "instance_type_master" {
-  description = "Instance type for EC2 instances Master"
+variable "ami" {
+  description = "AMI ID for the EC2 instances"
+  type        = string
+  default     = ""
+}
+
+variable "instance_type" {
+  description = "Instance type for the EC2 instances"
   type        = string
 }
 
-variable "instance_type_worker" {
-  description = "Instance type for EC2 instances Worker"
-  type        = string
+variable "subnets_id" {
+  description = "Subnet ID for the EC2 instances"
+  type        = list(string)
 }
 
-variable "public_subnet_id" {
-  description = "Public subnet ID"
-  type        = string
+variable "sgs_id" {
+  description = "Security Group ID for the EC2 instances"
+  type        = list(string)
 }
 
-variable "public_sg_id" {
-  description = "Public security group ID"
-  type        = string
-}
-
-variable "master_count" {
-  description = "Number of Master EC2 instances"
+variable "instance_count" {
+  description = "Number of EC2 instances"
   type        = number
-  default     = 1
 }
 
-variable "worker_count" {
-  description = "Number of Worker EC2 instances"
-  type        = number
-  default     = 2
+variable "key_name" {
+  description = "Key pair name for the EC2 instances"
+  type        = string
+}
+
+variable "private_ips" {
+  description = "Private IP addresses for the EC2 instances"
+  type        = list(string)
 }

@@ -1,0 +1,38 @@
+# ansible/roles/openvpn/tasks/server.yml
+---
+- name: Install OpenVPN
+  ansible.builtin.apt:
+    name: openvpn
+    state: present
+    update_cache: true
+
+- name: Create certificate directory
+  ansible.builtin.file:
+    path: "{{ openvpn_cert_dir }}"
+    state: directory
+    mode: '0700'
+
+- name: Copy certificates
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: '0600'
+    remote_src: true
+  with_items:
+    - { src: "{{ ca_dir }}/server.key", dest: "{{ openvpn_cert_dir }}/server.key" }
+    - { src: "{{ ca_dir }}/server.crt", dest: "{{ openvpn_cert_dir }}/server.crt" }
+    - { src: "{{ ca_dir }}/rootCA.pem", dest: "{{ openvpn_cert_dir }}/ca.crt" }
+
+- name: Configure OpenVPN
+  ansible.builtin.template:
+    src: templates/server.conf.j2
+    dest: /etc/openvpn/server.conf
+    mode: '0644'
+  notify: Restart OpenVPN
+
+- name: Configure IP forwarding
+  ansible.builtin.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    state: present
+    reload: true

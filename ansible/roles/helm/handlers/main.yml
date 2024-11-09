@@ -3,7 +3,6 @@
 - name: Update Helm repositories
   ansible.builtin.command:
     cmd: helm repo update
-    creates: /path/to/some/file/that/indicates/repo/updated
   tags:
     - helm
     - configuration

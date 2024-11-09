@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress
+  namespace: default
+  labels:
+    app: wordpress
+spec:
+  selector:
+    matchLabels:
+      app: wordpress
+      tier: frontend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: wordpress
+        tier: frontend
+    spec:
+      containers:
+        - image: "{{ .Values.wordpress.image.repository }}:{{ .Values.wordpress.image.tag }}"
+          name: wordpress
+          env:
+            - name: WORDPRESS_DB_HOST
+              value: {{ .Values.wordpress.mysql.host }}
+            - name: WORDPRESS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: WORDPRESS_DB_USER
+              value: {{ .Values.wordpress.mysql.user }}
+            - name: WP_HOME
+              value: {{ .Values.wordpress.domain }}
+            - name: WP_SITEURL
+              value: {{ .Values.wordpress.domain }}
+          ports:
+            - containerPort: 80
+              name: wordpress
+          volumeMounts:
+            - name: wordpress-persistent-storage
+              mountPath: /var/www/html/wp-content
+      volumes:
+        - name: wordpress-persistent-storage
+          persistentVolumeClaim:
+            claimName: wp-pv-claim

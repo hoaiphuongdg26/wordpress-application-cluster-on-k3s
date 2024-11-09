@@ -1,0 +1,74 @@
+# roles/ca/tasks/main.yml
+---
+- name: Ensure OpenSSL is installed
+  ansible.builtin.package:
+    name: openssl
+    state: present
+
+- name: Create a directory to share
+  ansible.builtin.file:
+    path: "{{ ca_dir }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0700'
+
+- name: Generate Root CA Key
+  openssl_privatekey:
+    path: "{{ ca_dir }}/rootCA.key"
+    size: "{{ ca_key_size }}"
+    type: RSA
+    passphrase: "{{ ca_key_passphrase }}"
+    cipher: auto
+
+- name: Generate Root CA Certificate
+  openssl_certificate:
+    path: "{{ ca_cert_file }}"
+    privatekey_path: "{{ ca_key_file }}"
+    privatekey_passphrase: "{{ ca_key_passphrase }}"
+    provider: selfsigned
+    selfsigned_not_after: "+{{ ca_days }}d"
+
+- name: Create server.csr.cnf file
+  ansible.builtin.template:
+    src: server.csr.cnf.j2
+    dest: "{{ ca_dir }}/server.csr.cnf"
+    mode: '0600'
+
+- name: Create v3.ext file
+  ansible.builtin.template:
+    src: v3.ext.j2
+    dest: "{{ ca_dir }}/v3.ext"
+    mode: '0600'
+
+- name: Generate Server Private Key
+  openssl_privatekey:
+    path: "{{ ca_dir }}/server.key"
+    size: "{{ ca_key_size }}"
+    type: RSA
+
+- name: Generate Server CSR
+  openssl_csr:
+    path: "{{ ca_dir }}/server.csr"
+    privatekey_path: "{{ ca_dir }}/server.key"
+    # config: "{{ ca_dir }}/server.csr.cnf"
+    country_name: "{{ ca_country }}"
+    state_or_province_name: "{{ ca_state }}"
+    locality_name: "{{ ca_locality }}"
+    organization_name: "{{ ca_organization }}"
+    organizational_unit_name: "{{ ca_organizational_unit }}"
+    email_address: "{{ ca_email_address }}"
+    common_name: "{{ ca_common_name }}"
+
+- name: Generate Server Certificate
+  openssl_certificate:
+    path: "{{ ca_dir }}/server.crt"
+    csr_path: "{{ ca_dir }}/server.csr"
+    ownca_path: "{{ ca_dir }}/rootCA.pem"
+    ownca_privatekey_path: "{{ ca_dir }}/rootCA.key"
+    ownca_privatekey_passphrase: "{{ ca_key_passphrase }}"
+    provider: ownca
+    ownca_not_after: +{{ ca_days_valid }}d
+    ownca_create_subject_key_identifier: always_create
+    ownca_create_authority_key_identifier: true
+    # extfile: "{{ ca_dir }}/v3.ext"

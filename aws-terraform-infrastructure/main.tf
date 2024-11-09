@@ -1,69 +1,32 @@
-# main.tf
-
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-    tls = {
-      source  = "hashicorp/tls"
-      version = "~> 4.0"
-    }
-    local = {
-      source  = "hashicorp/local"
-      version = "~> 2.4"
-    }
-  }
-  required_version = ">= 1.2.0"
+# List all avalability zones in the region
+data "aws_availability_zones" "available" {}
+locals {
+  selected_azs = slice(data.aws_availability_zones.available.names, 0, var.aws_vpc_config.number_of_availability_zones)
 }
 
-provider "aws" {
-  region = var.region
-}
-
+# Create VPC with public and private subnets
 module "vpc" {
   source = "./modules/vpc"
 
-  region              = var.region
-  environment         = var.environment
-  vpc_cidr            = var.vpc_cidr
-  public_subnets_cidr = var.public_subnets_cidr
-  availability_zones  = var.availability_zones
+  name                 = var.aws_project
+  vpc_cidr             = var.aws_vpc_config.cidr_block
+  enable_dns_hostnames = var.aws_vpc_config.enable_dns_hostnames
+  enable_dns_support   = var.aws_vpc_config.enable_dns_support
+  public_subnets_cidr  = var.aws_vpc_config.public_subnets_cidr
+  private_subnets_cidr = var.aws_vpc_config.private_subnets_cidr
+  availability_zones   = local.selected_azs
+  enable_nat_gateway   = var.aws_vpc_config.enable_nat_gateway
 }
 
-module "security_groups" {
-  source = "./modules/security_groups"
+# Create Key Pair
+module "keypair" {
+  source = "./modules/keypair"
 
-  environment = var.environment
-  vpc_id      = module.vpc.vpc_id
-  allowed_ip  = var.allowed_ip
-
-  depends_on = [module.vpc]
+  name      = var.aws_project
+  algorithm = "ED25519"
 }
 
-module "route_tables" {
-  source     = "./modules/route_tables"
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = [module.vpc.public_subnets[0]]
-  routes = [
-    {
-      cidr_block = "0.0.0.0/0"
-      gateway_id = module.vpc.internet_gateway_id
-    }
-  ]
-  environment = var.environment
-  depends_on  = [module.vpc]
-}
-
-module "ec2" {
-  source = "./modules/ec2"
-
-  environment          = var.environment
-  instance_type_master = var.instance_type_master
-  instance_type_worker = var.instance_type_worker
-  public_subnet_id     = module.vpc.public_subnets[0]
-  public_sg_id         = module.security_groups.public_sg_id
-  master_count         = var.master_count
-  worker_count         = var.worker_count
+# Get my public IP address
+data "http" "my_ip" {
+  url = "http://checkip.amazonaws.com"
 }

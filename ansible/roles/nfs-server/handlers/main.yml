@@ -2,3 +2,10 @@
   ansible.builtin.systemd:
     name: nfs-kernel-server
     state: restarted
+
+- name: Update Helm repositories
+  ansible.builtin.command:
+    cmd: helm repo update
+  tags:
+    - helm
+    - configuration

@@ -1,0 +1,29 @@
+# templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mysql.fullname" . }}
+  labels:
+    {{- include "mysql.labels" . | nindent 4 }}
+spec:
+  ports:
+    - name: mysql
+      port: 3306
+  clusterIP: None
+  selector:
+    {{- include "mysql.labels" . | nindent 4 }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mysql.fullname" . }}-read
+  labels:
+    {{- include "mysql.labels" . | nindent 4 }}
+    readonly: "true"
+spec:
+  ports:
+    - name: mysql
+      port: 3306
+  selector:
+    {{- include "mysql.labels" . | nindent 4 }}

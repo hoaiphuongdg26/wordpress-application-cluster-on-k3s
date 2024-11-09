@@ -1,0 +1,113 @@
+---
+- name: Remove existing Jenkins repository configurations
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/apt/sources.list.d/jenkins.list
+    - /etc/apt/sources.list.d/jenkins.sources
+    - /etc/apt/sources.list.d/jenkins.sources.save
+
+- name: Clean APT cache
+  ansible.builtin.apt:
+    update_cache: true
+    autoclean: true
+    autoremove: false
+  changed_when: false
+
+- name: Remove APT cache
+  ansible.builtin.file:
+    path: /var/lib/apt/lists/
+    state: absent
+
+- name: Create APT cache directory
+  ansible.builtin.file:
+    path: /var/lib/apt/lists/
+    state: directory
+    mode: '0755'
+
+- name: Update APT cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install Java (OpenJDK 17)
+  ansible.builtin.apt:
+    name: openjdk-17-jdk
+    state: present
+    update_cache: true
+
+- name: Set Java 17 as the default Java version
+  alternatives:
+    name: java
+    path: /usr/lib/jvm/java-17-openjdk-amd64/bin/java
+    priority: 1
+
+- name: Install dependencies for Jenkins
+  ansible.builtin.apt:
+    name:
+      - gnupg
+      - ca-certificates
+      - curl
+    state: present
+
+- name: Create Jenkins keyring directory
+  ansible.builtin.file:
+    path: /usr/share/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Download Jenkins GPG key
+  ansible.builtin.get_url:
+    url: https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+    dest: /usr/share/keyrings/jenkins-keyring.asc
+    mode: '0644'
+    force: true
+
+- name: Remove existing Jenkins repository configuration
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/jenkins.list
+    state: absent
+
+- name: Add Jenkins repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/"
+    state: present
+    filename: jenkins
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Install Jenkins
+  ansible.builtin.apt:
+    name: jenkins
+    state: present
+
+- name: Start and enable Jenkins service
+  ansible.builtin.systemd:
+    name: jenkins
+    enabled: true
+    state: started
+
+- name: Check if Jenkins initial admin password file exists
+  ansible.builtin.stat:
+    path: /var/lib/jenkins/secrets/initialAdminPassword
+  register: jenkins_admin_password_file
+
+- name: Wait for Jenkins initial admin password file
+  ansible.builtin.wait_for:
+    path: /var/lib/jenkins/secrets/initialAdminPassword
+    timeout: 30
+  when: not jenkins_admin_password_file.stat.exists
+
+- name: Display Jenkins initial admin password
+  ansible.builtin.slurp:
+    src: /var/lib/jenkins/secrets/initialAdminPassword
+  register: jenkins_admin_password
+  when: jenkins_admin_password_file.stat.exists
+
+- name: Show initial admin password
+  ansible.builtin.debug:
+    msg: "Initial Jenkins admin password: {{ jenkins_admin_password.stdout }}"
+  when: jenkins_admin_password.stdout is defined

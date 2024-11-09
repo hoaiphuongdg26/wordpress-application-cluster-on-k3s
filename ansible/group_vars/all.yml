@@ -1,7 +1,25 @@
 # group_vars/all.yml
 ---
-ansible_user: ubuntu # Thay đổi user này nếu cần
+instances:
+  - name: "management-server-instance-0"
+    private_ip: "10.0.1.10"
+    public_ips: "54.224.69.231"
+    dns_name: "ec2-54-224-69-231.compute-1.amazonaws.com"
+  - name: "k8s-masters-instance-0"
+    private_ip: "10.0.10.10"
+  - name: "k8s-workers-instance-0"
+    private_ip: "10.0.10.20"
+  - name: "k8s-workers-instance-1"
+    private_ip: "10.0.10.30"
+  - name: "k8s-workers-instance-2"
+    private_ip: "10.0.10.40"
+
+key_path: "../aws-terraform-infrastructure/ttdn-key.pem"
+ansible_user: ubuntu
 
 nfs_server_ip: "{{ hostvars[groups['master'][0]]['private_ip'] }}"
 nfs_share_folder: "/var/nfs/general"
 nfs_mount_folder: "/nfs/general"
+
+ca_key_passphrase: "your_secure_passphrase"
+ca_dir: "/etc/ssl/ca"

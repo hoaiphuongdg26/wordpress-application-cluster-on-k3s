@@ -4,3 +4,15 @@
   ansible.builtin.apt:
     update_cache: true
   when: ansible_os_family == "Debian"
+
+- name: Ensure Python 3 is installed
+  ansible.builtin.apt:
+    name: python3
+    state: present
+    update_cache: true
+
+- name: Ensure python3-pip is installed
+  ansible.builtin.package:
+    name: python3-pip
+    state: present
+    update_cache: true

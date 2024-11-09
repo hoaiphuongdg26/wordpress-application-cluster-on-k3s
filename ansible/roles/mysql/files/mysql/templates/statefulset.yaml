@@ -1,0 +1,184 @@
+# templates/statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "mysql.fullname" . }}
+  labels:
+    {{- include "mysql.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "mysql.labels" . | nindent 6 }}
+  serviceName: {{ include "mysql.fullname" . }}
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        {{- include "mysql.labels" . | nindent 8 }}
+    spec:
+      initContainers:
+        - name: init-mysql
+          image: {{ .Values.image.mysql.repository }}:{{ .Values.image.mysql.tag }}
+          command:
+            - bash
+            - "-c"
+            - |
+              set -ex
+              [[ $HOSTNAME =~ -([0-9]+)$ ]] || exit 1
+              ordinal=${BASH_REMATCH[1]}
+              echo [mysqld] > /mnt/conf.d/server-id.cnf
+              echo server-id=$((100 + $ordinal)) >> /mnt/conf.d/server-id.cnf
+              if [[ $ordinal -eq 0 ]]; then
+                cp /mnt/config-map/primary.cnf /mnt/conf.d/
+              else
+                cp /mnt/config-map/replica.cnf /mnt/conf.d/
+              fi
+          volumeMounts:
+            - name: conf
+              mountPath: /mnt/conf.d
+            - name: config-map
+              mountPath: /mnt/config-map
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+
+        - name: clone-mysql
+          image: {{ .Values.image.xtrabackup.repository }}:{{ .Values.image.xtrabackup.tag }}
+          command:
+            - bash
+            - "-c"
+            - |
+              set -ex
+              [[ -d /var/lib/mysql/mysql ]] && exit 0
+              [[ `hostname` =~ -([0-9]+)$ ]] || exit 1
+              ordinal=${BASH_REMATCH[1]}
+              [[ $ordinal -eq 0 ]] && exit 0
+              ncat --recv-only {{ include "mysql.fullname" . }}-$(($ordinal-1)).{{ include "mysql.fullname" . }} 3307 | xbstream -x -C /var/lib/mysql
+              xtrabackup --prepare --target-dir=/var/lib/mysql
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+              subPath: mysql
+            - name: conf
+              mountPath: /etc/mysql/conf.d
+
+      containers:
+        - name: mysql
+          image: {{ .Values.image.mysql.repository }}:{{ .Values.image.mysql.tag }}
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mysql.fullname" . }}-secret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              value: {{ .Values.mysql.database }}
+            - name: MYSQL_USER
+              value: {{ .Values.mysql.user }}
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mysql.fullname" . }}-secret
+                  key: MYSQL_PASSWORD
+          ports:
+            - name: mysql
+              containerPort: 3306
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+              subPath: mysql
+            - name: conf
+              mountPath: /etc/mysql/conf.d
+          resources:
+            {{- toYaml .Values.resources.mysql | nindent 12 }}
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "mysqladmin ping -u root -p${MYSQL_ROOT_PASSWORD}"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "mysql -h 127.0.0.1 -u root -p${MYSQL_ROOT_PASSWORD} -e 'SELECT 1'"
+            initialDelaySeconds: 5
+            periodSeconds: 2
+            timeoutSeconds: 1
+
+        - name: xtrabackup
+          image: {{ .Values.image.xtrabackup.repository }}:{{ .Values.image.xtrabackup.tag }}
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mysql.fullname" . }}-secret
+                  key: MYSQL_ROOT_PASSWORD
+          ports:
+            - name: xtrabackup
+              containerPort: 3307
+          command:
+            - bash
+            - "-c"
+            - |
+              set -ex
+              cd /var/lib/mysql
+              
+              if [[ -f xtrabackup_slave_info && "x$(<xtrabackup_slave_info)" != "x" ]]; then
+                cat xtrabackup_slave_info | sed -E 's/;$//g' > change_master_to.sql.in
+                rm -f xtrabackup_slave_info xtrabackup_binlog_info
+              elif [[ -f xtrabackup_binlog_info ]]; then
+                [[ `cat xtrabackup_binlog_info` =~ ^(.*?)[[:space:]]+(.*?)$ ]] || exit 1
+                rm -f xtrabackup_binlog_info xtrabackup_slave_info
+                echo "CHANGE MASTER TO MASTER_LOG_FILE='${BASH_REMATCH[1]}',\
+                      MASTER_LOG_POS=${BASH_REMATCH[2]}" > change_master_to.sql.in
+              fi
+
+              if [[ -f change_master_to.sql.in ]]; then
+                echo "Waiting for mysqld to be ready (accepting connections)"
+                until mysql -h 127.0.0.1 -p$MYSQL_ROOT_PASSWORD -e "SELECT 1"; do sleep 1; done
+
+                echo "Initializing replication from clone position"
+                mysql -h 127.0.0.1 -u root -p${MYSQL_ROOT_PASSWORD} \
+                      -e "$(<change_master_to.sql.in), \
+                          MASTER_HOST='{{ include "mysql.fullname" . }}-0.{{ include "mysql.fullname" . }}', \
+                          MASTER_USER='root', \
+                          MASTER_PASSWORD='${MYSQL_ROOT_PASSWORD}', \
+                          MASTER_CONNECT_RETRY=10; \
+                        START SLAVE USER='root' PASSWORD='$MYSQL_ROOT_PASSWORD';" || exit 1
+                mv change_master_to.sql.in change_master_to.sql.orig
+              fi
+
+              exec ncat --listen --keep-open --send-only --max-conns=1 3307 -c \
+                "xtrabackup --backup --slave-info --stream=xbstream --host=127.0.0.1 --user=root --password=$MYSQL_ROOT_PASSWORD"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+              subPath: mysql
+            - name: conf
+              mountPath: /etc/mysql/conf.d
+          resources:
+            {{- toYaml .Values.resources.xtrabackup | nindent 12 }}
+
+      volumes:
+        - name: conf
+          emptyDir: {}
+        - name: config-map
+          configMap:
+            name: {{ include "mysql.fullname" . }}
+        - name: init-scripts
+          configMap:
+            name: {{ include "mysql.fullname" . }}-init-scripts
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ .Values.persistence.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}

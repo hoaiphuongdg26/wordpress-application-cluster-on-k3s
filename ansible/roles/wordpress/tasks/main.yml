@@ -1,0 +1,36 @@
+# ansible/roles/wordpress/tasks/main.yml
+---
+- name: Create directory for WordPress content
+  ansible.builtin.file:
+    path: "{{ nfs_share_folder }}/wp-content"
+    state: directory
+    owner: nobody
+    group: nogroup
+    mode: '0755'
+
+- name: Copy Helm chart to master node
+  ansible.builtin.copy:
+    src: wordpress/
+    dest: /tmp/wordpress-helm
+    mode: '0755'
+
+- name: Create temporary values file
+  ansible.builtin.template:
+    src: values.yml.j2
+    dest: "/tmp/wordpress-values.yml"
+    mode: '0644'
+  register: values_file
+
+- name: Deploy WordPress using Helm
+  kubernetes.core.helm:
+    name: wordpress
+    chart_ref: /tmp/wordpress-helm
+    release_namespace: default
+    create_namespace: false
+    values_files:
+      - "{{ values_file.dest }}"
+
+# - name: Clean up Helm chart files
+#   ansible.builtin.file:
+#     path: /tmp/wordpress-helm
+#     state: absent
