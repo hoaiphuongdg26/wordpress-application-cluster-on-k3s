@@ -16,7 +16,6 @@ variable "internet_gateway_id" {
 variable "nat_gateway_id" {
   description = "ID of the NAT Gateway"
   type        = string
-  default     = ""
 }
 
 variable "enable_nat_gateway" {

@@ -22,18 +22,3 @@ data "aws_ami" "ubuntu" {
 locals {
   ec2_ami = var.ami != "" ? var.ami : data.aws_ami.ubuntu.id
 }
-
-# EC2 Instance
-resource "aws_instance" "this" {
-  count         = var.instance_count
-  ami           = local.ec2_ami
-  instance_type = var.instance_type
-  private_ip    = var.private_ips[count.index]
-
-  subnet_id              = var.subnets_id[count.index % length(var.subnets_id)]
-  vpc_security_group_ids = var.sgs_id
-  key_name               = var.key_name
-  tags = {
-    Name = "${var.name}-instance-${count.index}"
-  }
-}

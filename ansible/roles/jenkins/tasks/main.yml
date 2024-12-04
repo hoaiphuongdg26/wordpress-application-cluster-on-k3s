@@ -106,8 +106,9 @@
     src: /var/lib/jenkins/secrets/initialAdminPassword
   register: jenkins_admin_password
   when: jenkins_admin_password_file.stat.exists
+  become: true
 
 - name: Show initial admin password
   ansible.builtin.debug:
-    msg: "Initial Jenkins admin password: {{ jenkins_admin_password.stdout }}"
-  when: jenkins_admin_password.stdout is defined
+    msg: "Initial Jenkins admin password: {{ jenkins_admin_password.content | b64decode }}"
+  when: jenkins_admin_password is defined

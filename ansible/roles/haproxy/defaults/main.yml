@@ -2,4 +2,6 @@
 ---
 haproxy_ssl_port: 443
 haproxy_cert_dir: /etc/haproxy/certs
+haproxy_common_name: "https://{{ instances[0].dns_name }}"
+haproxy_cert_days: 365
 haproxy_combined_cert: "{{ haproxy_cert_dir }}/server.pem"

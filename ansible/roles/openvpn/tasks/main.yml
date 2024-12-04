@@ -1,5 +1,0 @@
----
-# - name: Include server tasks
-#   ansible.builtin.include_tasks: server.yml
-- name: Include client certificate tasks
-  ansible.builtin.include_tasks: client-certificate.yml

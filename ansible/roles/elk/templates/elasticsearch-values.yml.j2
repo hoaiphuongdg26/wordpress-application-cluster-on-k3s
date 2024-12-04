@@ -1,0 +1,15 @@
+cluster:
+  name: "{{ cluster_name | default('elasticsearch') }}"
+
+nodeGroup: master
+
+replicas: 1
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "2Gi"
+  limits:
+    cpu: "1"
+    memory: "4Gi"
+

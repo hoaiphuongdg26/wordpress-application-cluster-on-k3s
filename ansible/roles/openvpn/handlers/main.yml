@@ -1,6 +1,0 @@
-# roles/openvpn/handlers/main.yml
----
-- name: Restart OpenVPN
-  ansible.builtin.systemd:
-    name: openvpn
-    state: restarted

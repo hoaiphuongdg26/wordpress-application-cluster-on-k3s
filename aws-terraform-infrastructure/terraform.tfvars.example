@@ -1,0 +1,27 @@
+aws_region      = "us-east-1"
+aws_environment = "dev"
+aws_project     = "ttdn"
+aws_owner       = "devops-team"
+
+aws_vpc_config = {
+  cidr_block                   = "10.0.0.0/16"
+  enable_dns_support           = true
+  enable_dns_hostnames         = true
+  public_subnets_cidr          = ["10.0.1.0/24"]
+  private_subnets_cidr         = ["10.0.10.0/24"]
+  number_of_availability_zones = 2
+  enable_nat_gateway           = true
+}
+
+aws_instance_config = {
+  key_name = "ttdn-keypair"
+  management_private_ips = ["10.0.1.10"]
+  k8s_master_private_ips = ["10.0.10.10"]
+  k8s_worker_private_ips = ["10.0.10.20", "10.0.10.30", "10.0.10.40"]
+  management_instance_count     = 1
+  k8s_master_instance_count     = 1
+  k8s_workers_instance_count    = 3
+  management_instance_type  = "t2.micro"
+  master_instance_type      = "t2.medium"
+  workers_instance_type     = "t2.micro"
+}

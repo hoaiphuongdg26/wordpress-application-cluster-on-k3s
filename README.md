@@ -1,6 +1,6 @@
 # WordPress Application Cluster on K3s
 
-This project demonstrates deploying a scalable WordPress application cluster using K3s, a lightweight Kubernetes distribution, on AWS infrastructure. It utilizes Terraform for infrastructure provisioning and Ansible for configuration management and application deployment.
+This project demonstrates deploying a highly available WordPress application cluster using K3s, a lightweight Kubernetes distribution, on AWS infrastructure. It implements a three-tier architecture with separate management, application, and data layers for optimal performance and security.
 
 ## Table of Contents
 
@@ -9,34 +9,23 @@ This project demonstrates deploying a scalable WordPress application cluster usi
   - [Project Overview](#project-overview)
   - [Project Structure](#project-structure)
   - [Architecture](#architecture)
-    - [Model](#model)
-    - [Infrastructure (AWS)](#infrastructure-aws)
-    - [Application Stack](#application-stack)
   - [Prerequisites](#prerequisites)
   - [Deployment Steps](#deployment-steps)
-    - [1. Set Up AWS Infrastructure](#1-set-up-aws-infrastructure)
-    - [2. Configure Ansible Inventory](#2-configure-ansible-inventory)
-    - [3. Set up Secrets for Database](#3-set-up-secrets-for-database)
-    - [4. Install Required Ansible Collections](#4-install-required-ansible-collections)
-    - [5. Deploy K3s Cluster and Applications](#5-deploy-k3s-cluster-and-applications)
-  - [Components Explained](#components-explained)
-  - [Security Considerations](#security-considerations)
-  - [Enhancements](#enhancements)
   - [Debugging](#debugging)
   - [References](#references)
 
 ## Project Overview
 
-This project aims to create a robust, scalable WordPress deployment using modern DevOps practices and tools. It leverages:
+This project aims to create a scalable WordPress deployment using modern DevOps practices and tools. It leverages:
 
 - Terraform for infrastructure as code (IaC)
 - Ansible for configuration management and application deployment
 - K3s for a lightweight Kubernetes environment
-- HAProxy for load balancing
-- MySQL with replication for data persistence
-- NGINX Ingress Controller for routing
-
-The result is a WordPress cluster that can handle high traffic loads and provides improved reliability through component redundancy.
+- HAProxy for load balancing and SSL termination
+- MySQL with master-slave replication for data persistence
+- NFS for shared storage
+- OpenVPN for secure remote access
+- Jenkins for continuous integration and deployment (CI/CD)
 
 ## Project Structure
 ```
@@ -44,9 +33,7 @@ The result is a WordPress cluster that can handle high traffic loads and provide
 ├── ansible
 │   ├── group_vars
 │   │   ├── all.yml
-│   │   ├── vault.yml
-│   │   ├── master.yml
-│   │   └── worker.yml
+│   │   └── vault.yml
 │   ├── inventory
 │   │   └── hosts.yml
 │   ├── roles
@@ -66,54 +53,7 @@ The result is a WordPress cluster that can handle high traffic loads and provide
 
 ## Architecture
 
-### Model
 <img src="./images/Diagram.svg" alt="Description"/>
-
-### Infrastructure (AWS)
-
-- VPC with public subnets
-- Internet Gateway for public internet access
-- Security groups for access control
-- EC2 instances (1 master, 1 worker) in public subnets
-- Elastic IPs for stable public addressing
-
-```mermaid
-graph TB
-    subgraph VPC["VPC (10.0.0.0/16)"]
-        subgraph Public["Public Subnet (10.0.1.0/24)"]
-            subgraph Bastion["Management Server (t2.large)"]
-                Jenkins["Jenkins"]
-                HAProxy["HAProxy"]
-                OpenVPN["OpenVPN Server"]
-                CSF["CSF Firewall"]
-            end
-        end
-        
-        subgraph Private["Private Subnet (10.0.10.0/24)"]
-            subgraph K8sMaster["K8s Master Node (t2.large)"]
-                Helm["Helm"]
-                NFS["NFS Server"]
-            end
-            
-            subgraph K8sCluster["K8s Worker Nodes (3x t2.large)"]
-                ELK["Elasticsearch Cluster"]
-                Kibana["Kibana"]
-                Logstash["Logstash"]
-                MySQLMaster["MySQL Master"]
-                MySQLSlaves["MySQL Slaves"]
-                MySQLProxy["MySQL Proxy"]
-            end
-        end
-    end
-```
-
-### Application Stack
-
-- **Load Balancer Layer**: HAProxy for distributing incoming traffic
-- **Application Layer**: WordPress deployments running on K3s
-- **Data Layer**: MySQL StatefulSet with primary-replica replication
-- **Storage**: NFS Server for shared filesystem (WordPress media, etc.)
-- **Ingress**: NGINX Ingress Controller for routing and SSL termination
 
 ## Prerequisites
 
@@ -126,23 +66,20 @@ Before you begin, ensure you have the following installed:
 ## Deployment Steps
 
 ### 1. Set Up AWS Infrastructure
+Copy the `terraform.tfvars.example` file to `terraform.tfvars` and update the values with your AWS credentials and desired configuration.
 
+Then, run the following commands to create the infrastructure:
 ```bash
 cd aws-terraform-infrastructure/
 terraform init
 terraform plan
 terraform apply
 ```
-Take note of the output values, as they'll be needed for Ansible configuration. Example: 
+Take note of the output values, as they'll be needed for Ansible configuration. Example:
  ```bash
-  {
-    "dns_names" = [
-      "ec2-54-224-69-231.compute-1.amazonaws.com",
-    ]
-    "public_ips" = [
-      "54.224.69.231",
-    ]
-  },
+  "management_eip" = [
+    "54.224.69.231",
+  ]
 ```
 
 ### 2. Configure Ansible Inventory
@@ -167,7 +104,7 @@ vault_mysql_root_password: "123456@Za"
 vault_mysql_password: "123456@Za"
 vault_mysql_slave_password: "123456@Za"
 ```
-*Note: Replace these passwords with strong, secure passwords in production.*  
+*Note: Replace these passwords with strong, secure passwords in production.*
 
 To edit content in vault, using command:
 ```bash
@@ -192,30 +129,14 @@ This playbook will:
 - Deploy WordPress
 - Configure NGINX Ingress Controller
 
-## Components Explained
+### 6. Access the WordPress Application
+Access the WordPress application by visiting the public IP address or DNS of the Management Server in a web browser.
 
-- **HAProxy**: Acts as the entry point, distributing traffic across WordPress pods.
-- **WordPress Deployment**: Scalable WordPress instances.
-- **MySQL StatefulSet**: Provides a primary-replica setup for data persistence and high availability.
-- **NFS Server**: Offers shared storage for WordPress media files.
-- **NGINX Ingress**: Manages external access to services, including SSL/TLS termination.
+*Example*: `https://ec2-54-224-69-231.compute-1.amazonaws.com`
 
-## Security Considerations
-While this project demonstrates core concepts, it's important to note that additional security measures should be implemented for production use, including:
-
-- Proper network segmentation (use of private subnets)
-- Implementing a bastion host for secure SSH access
-- Enhancing EC2 instance security
-- Implementing proper secrets management
-- Regular security audits and updates
-
-## Enhancements
-
-- **Private Subnet for MySQL**: Move the MySQL database into a private subnet for improved security, preventing direct internet access.
-- **Monitoring System**: Implement monitoring tools like Prometheus and Grafana to track infrastructure and application performance.
-- **Logging**: Centralize application and infrastructure logs using ELK stack (Elasticsearch, Logstash, Kibana).
-- **Backup Strategy**: Set up automated backups for MySQL and WordPress data, stored in an S3 bucket for disaster recovery.
-- **Scalability**: Expand the cluster to support more WordPress instances and database replicas as traffic grows.
+### 7. Access Jenkins and OpenVPN (Optional)
+- Jenkins: `http://<management-server-public-ip>:8080`
+- OpenVPN: Download the OpenVPN configuration file from the home of Management Server and connect using a VPN client.
 
 ## Debugging
 When you encounter an error and need to rerun the playbook:
@@ -227,6 +148,14 @@ When you encounter an error and need to rerun the playbook:
    ```bash
    ansible-playbook site.yml --limit dev-master-1 --ask-vault-pass
    ```
+SSH manual to the hosts in private subnet:
+
+*Example*:
+```bash
+# SSH to master node
+ssh-keygen -R 10.0.10.10 # Remove the old key (optional)
+ssh -o ProxyCommand="ssh -W %h:%p -i ttdn-key.pem ubuntu@<ip_public>" -i ttdn-key.pem ubuntu@10.0.10.10
+```
 
 ## References
 

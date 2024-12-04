@@ -1,3 +1,0 @@
-# group_vars/master.yml
----
-k3s_server_args: ""

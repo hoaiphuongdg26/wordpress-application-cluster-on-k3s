@@ -1,3 +1,0 @@
-# group_vars/worker.yml
----
-k3s_url: "https://{{ instances[1].private_ip }}:6443"

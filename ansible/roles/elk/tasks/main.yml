@@ -1,0 +1,98 @@
+# elk/tasks/main.yml
+- name: Ensure Namespace Exists
+  k8s:
+    name: "{{ elk_namespace }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+  tags: always
+
+- name: Add Elastic Helm Repository
+  shell: helm repo add elastic https://helm.elastic.co
+  changed_when: false
+  tags: always
+
+- name: Update Helm Repositories
+  shell: helm repo update
+  changed_when: false
+  tags: always
+
+- name: Create Template Directory
+  file:
+    path: "{{ playbook_dir }}/templates"
+    state: directory
+  tags: always
+
+- name: Create Elasticsearch Template
+  template:
+    src: templates/elasticsearch-values.yml.j2
+    dest: "{{ playbook_dir }}/elasticsearch-values.yml"
+  tags: elasticsearch
+
+- name: Install Elasticsearch
+  shell: >
+    helm install elasticsearch elastic/elasticsearch 
+    -f "{{ playbook_dir }}/elasticsearch-values.yml" 
+    -n "{{ elk_namespace }}"
+  register: elasticsearch_install
+  failed_when: elasticsearch_install.rc != 0
+  tags: elasticsearch
+
+- name: Create Filebeat Template
+  template:
+    src: templates/filebeat-values.yml.j2
+    dest: "{{ playbook_dir }}/filebeat-values.yml"
+  tags: filebeat
+
+- name: Install Filebeat
+  shell: >
+    helm install filebeat elastic/filebeat 
+    -f "{{ playbook_dir }}/filebeat-values.yml" 
+    -n "{{ elk_namespace }}"
+  register: filebeat_install
+  failed_when: filebeat_install.rc != 0
+  tags: filebeat
+
+- name: Create Logstash Template
+  template:
+    src: templates/logstash-values.yml.j2
+    dest: "{{ playbook_dir }}/logstash-values.yml"
+  tags: logstash
+
+- name: Install Logstash
+  shell: >
+    helm install logstash elastic/logstash 
+    -f "{{ playbook_dir }}/logstash-values.yml" 
+    -n "{{ elk_namespace }}"
+  register: logstash_install
+  failed_when: logstash_install.rc != 0
+  tags: logstash
+
+- name: Create Kibana Template
+  template:
+    src: templates/kibana-values.yml.j2
+    dest: "{{ playbook_dir }}/kibana-values.yml"
+  tags: kibana
+
+- name: Install Kibana
+  shell: >
+    helm install kibana elastic/kibana 
+    -f "{{ playbook_dir }}/kibana-values.yml" 
+    -n "{{ elk_namespace }}"
+  register: kibana_install
+  failed_when: kibana_install.rc != 0
+  tags: kibana
+
+- name: Create Kibana Ingress
+  k8s:
+    definition: "{{ lookup('template', 'templates/kibana-ingress.yml.j2') }}"
+    state: present
+  tags: kibana
+
+- name: Verify Elastic Stack Deployment
+  shell: kubectl get pods -n "{{ elk_namespace }}"
+  register: deployment_status
+  changed_when: false
+
+- debug:
+    var: deployment_status.stdout_lines

@@ -1,0 +1,4 @@
+# elk/default/main.yml
+---
+elk_namespace: "monitoring"
+elk_elastic_version: "8.5.1"

@@ -3,8 +3,8 @@
 instances:
   - name: "management-server-instance-0"
     private_ip: "10.0.1.10"
-    public_ips: "54.224.69.231"
-    dns_name: "ec2-54-224-69-231.compute-1.amazonaws.com"
+    public_ips: "52.23.136.165"
+    dns_name: "ec2-52-23-136-165.compute-1.amazonaws.com"
   - name: "k8s-masters-instance-0"
     private_ip: "10.0.10.10"
   - name: "k8s-workers-instance-0"
@@ -13,6 +13,8 @@ instances:
     private_ip: "10.0.10.30"
   - name: "k8s-workers-instance-2"
     private_ip: "10.0.10.40"
+
+k3s_url: "https://{{ instances[1].private_ip }}:6443"
 
 key_path: "../aws-terraform-infrastructure/ttdn-key.pem"
 ansible_user: ubuntu
@@ -23,3 +25,13 @@ nfs_mount_folder: "/nfs/general"
 
 ca_key_passphrase: "your_secure_passphrase"
 ca_dir: "/etc/ssl/ca"
+ca_cert_file: "{{ ca_dir }}/rootCA.pem"
+ca_key_file: "{{ ca_dir }}/rootCA.key"
+ca_key_size: 2048
+ca_country: "VN"
+ca_state: "HCM"
+ca_locality: "HCM"
+ca_organization: "Hoai Phuong"
+ca_organizational_unit: "Random"
+ca_email_address: phuongqth268@gmail.com
+ca_cert_days: 365

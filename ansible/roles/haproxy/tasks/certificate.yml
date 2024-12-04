@@ -1,0 +1,53 @@
+- name: Create server.csr.cnf file
+  ansible.builtin.template:
+    src: server.csr.cnf.j2
+    dest: "{{ haproxy_cert_dir }}/server.csr.cnf"
+    mode: '0600'
+
+- name: Create v3.ext file
+  ansible.builtin.template:
+    src: v3.ext.j2
+    dest: "{{ haproxy_cert_dir }}/v3.ext"
+    mode: '0600'
+
+# Tạo Private Key
+- name: Generate Server Private Key
+  openssl_privatekey:
+    path: "{{ haproxy_cert_dir }}/server.key"
+    size: "{{ ca_key_size }}"
+    type: RSA
+
+# Tạo CSR với thông tin định danh
+- name: Generate Server CSR
+  openssl_csr:
+    path: "{{ haproxy_cert_dir }}/server.csr"
+    privatekey_path: "{{ haproxy_cert_dir }}/server.key"
+    common_name: "{{ haproxy_common_name }}"
+    # config: "{{ ca_dir }}/server.csr.cnf"
+    country_name: "{{ ca_country }}"
+    state_or_province_name: "{{ ca_state }}"
+    locality_name: "{{ ca_locality }}"
+    organization_name: "{{ ca_organization }}"
+    organizational_unit_name: "{{ ca_organizational_unit }}"
+    email_address: "{{ ca_email_address }}"
+
+# Ký certificate
+- name: Generate Server Certificate
+  openssl_certificate:
+    path: "{{ haproxy_cert_dir }}/server.crt"
+    csr_path: "{{ haproxy_cert_dir }}/server.csr"
+    ownca_path: "{{ ca_cert_file }}"
+    ownca_privatekey_path: "{{ ca_key_file }}"
+    ownca_privatekey_passphrase: "{{ ca_key_passphrase }}"
+    provider: ownca
+    ownca_not_after: +{{ haproxy_cert_days }}d
+    ownca_create_subject_key_identifier: always_create
+    ownca_create_authority_key_identifier: true
+    # extfile: "{{ ca_dir }}/v3.ext"
+
+- name: Combine Server Key and Certificate
+  ansible.builtin.shell: |
+    cat {{ haproxy_cert_dir }}/server.key {{ haproxy_cert_dir }}/server.crt > {{ haproxy_combined_cert }}
+    chmod 0600 {{ haproxy_combined_cert }}
+  args:
+    creates: "{{ haproxy_combined_cert }}"

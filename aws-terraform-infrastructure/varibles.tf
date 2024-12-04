@@ -25,6 +25,12 @@ variable "aws_owner" {
   type        = string
 }
 
+variable "ami" {
+  description = "AMI ID for the EC2 instances"
+  type        = string
+  default     = ""
+}
+
 variable "aws_vpc_config" {
   description = "VPC configuration"
   type = object({
@@ -49,6 +55,7 @@ variable "aws_instance_config" {
     k8s_workers_instance_count = number,
     k8s_master_instance_count = number,
     management_instance_type = string,
-    cluster_instance_type = string
+    master_instance_type = string
+    workers_instance_type = string
   })
 }

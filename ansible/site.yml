@@ -1,36 +1,36 @@
-# - name: Install on master
-#   hosts: master
-#   become: true
-#   roles:
-#     - common
-#     - k3s-master
-#     - k9s
-#     - helm
-#     - nfs-server
+ - name: Install on master
+   hosts: master
+   become: true
+   roles:
+     - common
+     - k3s-master
+     - k9s
+     - helm
+     - nfs-server
 
-# - name: Install on workers
-#   hosts: worker
-#   become: true
-#   roles:
-#     - common
-#     - k3s-worker
-#     - nfs-agent
+ - name: Install on workers
+   hosts: worker
+   become: true
+   roles:
+     - common
+     - k3s-worker
+     - nfs-agent
 
-# - name: Install on master
-#   hosts: master
-#   vars_files:
-#     - group_vars/vault.yml
-#   become: true
-#   roles:
-#     - mysql
-#     - wordpress
+ - name: Install on master
+   hosts: master
+   vars_files:
+     - group_vars/vault.yml
+   become: true
+   roles:
+     - mysql
+     - wordpress
+#     - elk
 
-- name: Install on manager
-  hosts: manager
-  become: true
-  roles:
-    # - common
-    # - ca
-    - openvpn
-    # - haproxy
-    # - jenkins
+ - name: Install on manager
+   hosts: manager
+   become: true
+   roles:
+     - common
+     - ca
+     - haproxy
+     - jenkins

@@ -10,7 +10,7 @@ module "management_sg" {
       description = "Allow OpenVPN Access"
       from_port   = 1194
       to_port     = 1194
-      protocol    = "tcp"
+      protocol    = "udp"
       ip          = "0.0.0.0/0"
     },
     {
@@ -40,13 +40,6 @@ module "management_sg" {
       to_port     = 8080
       protocol    = "tcp"
       ip          = "0.0.0.0/0"
-    },
-    {
-      description = "Allow traffic from VPN subnet"
-      from_port   = -1
-      to_port     = -1
-      protocol    = "-1"
-      ip          = "172.16.0.0/24"
     },
   ]
 

@@ -12,12 +12,8 @@
     state: directory
     mode: '0700'
 
-- name: Combine Server Key and Certificate
-  ansible.builtin.shell: |
-    cat {{ ca_dir }}/server.key {{ ca_dir }}/server.crt > {{ haproxy_combined_cert }}
-    chmod 0600 {{ haproxy_combined_cert }}
-  args:
-    creates: "{{ haproxy_combined_cert }}"
+- name: Create HAProxy certificate files
+  ansible.builtin.import_tasks: certificate.yml
 
 - name: Create HAProxy configuration
   ansible.builtin.template:
